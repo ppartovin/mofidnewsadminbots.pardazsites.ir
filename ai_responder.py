@@ -10,7 +10,7 @@ from json_data_store import read_data, write_data
 
 BASE_URL = os.environ.get("AI_BASE_URL", "https://api.gapgpt.app/v1").strip()
 MODEL = os.environ.get("AI_MODEL", "gpt-6-luna").strip()
-API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+API_KEY = os.environ.get("AI_API_KEY", "").strip()
 FILE_PATH = os.environ.get("FILE_PATH", "").strip()
 
 # Prompt for a key only when run from an interactive terminal. WSGI servers
