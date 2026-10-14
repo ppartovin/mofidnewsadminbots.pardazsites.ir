@@ -1,0 +1,28 @@
+"""Read and atomically update the JSON data file configured by FILE_PATH."""
+
+import json
+import os
+import tempfile
+
+
+def read_data(path: str):
+    """Load and return the JSON value at path."""
+    with open(path, "r", encoding="utf-8") as data_file:
+        return json.load(data_file)
+
+
+def write_data(path: str, data) -> None:
+    """Atomically replace path with the supplied JSON value."""
+    directory = os.path.dirname(os.path.abspath(path))
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=directory, delete=False
+        ) as temp_file:
+            temp_path = temp_file.name
+            json.dump(data, temp_file, ensure_ascii=False, indent=2)
+            temp_file.write("\n")
+        os.replace(temp_path, path)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
