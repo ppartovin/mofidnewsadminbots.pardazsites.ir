@@ -4,11 +4,19 @@ import json
 import os
 import tempfile
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCHOOL_SCHEDULE_PATH = os.path.join(ROOT_DIR, "school_schedule.json")
+
 
 def read_data(path: str):
     """Load and return the JSON value at path."""
     with open(path, "r", encoding="utf-8") as data_file:
         return json.load(data_file)
+
+
+def read_school_schedule():
+    """Load school_schedule.json from the program root directory."""
+    return read_data(SCHOOL_SCHEDULE_PATH)
 
 
 def write_data(path: str, data) -> None:

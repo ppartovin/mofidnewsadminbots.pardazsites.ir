@@ -5,7 +5,7 @@ import sys
 import json
 
 from openai import OpenAI
-from json_data_store import read_data, write_data
+from json_data_store import read_data, read_school_schedule, write_data
 
 
 BASE_URL = os.environ.get("AI_BASE_URL", "https://api.gapgpt.app/v1").strip()
@@ -23,7 +23,10 @@ SYSTEM_PROMPT = """You are an assistant that answers the user and may edit one J
 Return exactly one valid JSON object with exactly these keys:
 {"answer": "reply to the user", "datas": null}
 
-The current file contents will be provided as JSON in the user message.
+The current contents of the configurable data file and the read-only school
+schedule will be provided as JSON in the user message. Use the school schedule
+as context when answering. Only the configurable data file may be changed;
+never change the school schedule.
 Change the data only when the user's explicit request asks for a change to it.
 Make only the changes the user specifically requested. Never make extra,
 unsolicited, inferred, or self-directed changes. If the user did not request a
@@ -40,6 +43,7 @@ def get_ai_reply(user_text: str) -> str:
         raise RuntimeError("FILE_PATH is not configured")
 
     current_data = read_data(FILE_PATH)
+    school_schedule = read_school_schedule()
 
     client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
     response = client.chat.completions.create(
@@ -49,7 +53,11 @@ def get_ai_reply(user_text: str) -> str:
             {
                 "role": "user",
                 "content": json.dumps(
-                    {"message": user_text, "current_datas": current_data},
+                    {
+                        "message": user_text,
+                        "current_datas": current_data,
+                        "school_schedule": school_schedule,
+                    },
                     ensure_ascii=False,
                 ),
             },
