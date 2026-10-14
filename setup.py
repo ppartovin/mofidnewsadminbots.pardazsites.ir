@@ -2,6 +2,7 @@
 import os
 import requests
 from flask import Flask, request
+from ai_responder import get_ai_reply
 
 app = Flask(__name__)
 
@@ -18,29 +19,34 @@ API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 @app.route("/webhook", methods=["POST"])
 def webhook():
     log("Webhook received")
-    log(request.get_data(as_text=True))
-
     try:
         update = request.get_json(silent=True) or {}
         message = update.get("message") or {}
         chat_id = (message.get("chat") or {}).get("id")
-        message_id = message.get("message_id")
 
         if not TOKEN:
             log("ERROR: BALE_BOT_TOKEN is empty")
             return "Token is missing", 500
 
-        if chat_id is None or message_id is None:
-            log("No message to copy")
+        if chat_id is None:
+            log("Message has no chat id")
             return "ok", 200
 
+        user_text = (message.get("text") or message.get("caption") or "").strip()
+        if not user_text:
+            reply = "فعلاً فقط پیام‌های متنی را می‌توانم پاسخ بدهم."
+        else:
+            try:
+                reply = get_ai_reply(user_text)
+                if not reply:
+                    reply = "پاسخی دریافت نشد. لطفاً دوباره تلاش کنید."
+            except Exception as error:
+                log(f"AI ERROR: {type(error).__name__}: {error}")
+                reply = "در دریافت پاسخ از هوش مصنوعی خطایی رخ داد. لطفاً بعداً تلاش کنید."
+
         response = requests.post(
-            f"{API_URL}/copyMessage",
-            json={
-                "chat_id": chat_id,
-                "from_chat_id": chat_id,
-                "message_id": message_id,
-            },
+            f"{API_URL}/sendMessage",
+            json={"chat_id": chat_id, "text": reply},
             timeout=20,
         )
 
