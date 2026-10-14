@@ -35,18 +35,36 @@ def webhook():
         user_text = (message.get("text") or message.get("caption") or "").strip()
         if not user_text:
             reply = "فعلاً فقط پیام‌های متنی را می‌توانم پاسخ بدهم."
-        else:
-            try:
-                reply = get_ai_reply(user_text)
-                if not reply:
-                    reply = "پاسخی دریافت نشد. لطفاً دوباره تلاش کنید."
-            except Exception as error:
-                log(f"AI ERROR: {type(error).__name__}: {error}")
-                reply = "در دریافت پاسخ از هوش مصنوعی خطایی رخ داد. لطفاً بعداً تلاش کنید."
+            requests.post(
+                f"{API_URL}/sendMessage",
+                json={"chat_id": chat_id, "text": reply},
+                timeout=20,
+            )
+            return "ok", 200
+
+        sent = requests.post(
+            f"{API_URL}/sendMessage",
+            json={"chat_id": chat_id, "text": "در حال پردازش..."},
+            timeout=20,
+        )
+        log(f"Bale status response: {sent.status_code} {sent.text}")
+        sent.raise_for_status()
+        sent_result = sent.json()
+        status_message_id = (sent_result.get("result") or {}).get("message_id")
+        if status_message_id is None:
+            raise RuntimeError("Bale response did not include status message_id")
+
+        try:
+            reply = get_ai_reply(user_text)
+            if not reply:
+                reply = "پاسخی دریافت نشد. لطفاً دوباره تلاش کنید."
+        except Exception as error:
+            log(f"AI ERROR: {type(error).__name__}: {error}")
+            reply = "در دریافت پاسخ از هوش مصنوعی خطایی رخ داد. لطفاً بعداً تلاش کنید."
 
         response = requests.post(
-            f"{API_URL}/sendMessage",
-            json={"chat_id": chat_id, "text": reply},
+            f"{API_URL}/editMessageText",
+            json={"chat_id": chat_id, "message_id": status_message_id, "text": reply},
             timeout=20,
         )
 
