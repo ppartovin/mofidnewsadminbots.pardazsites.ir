@@ -3,7 +3,10 @@
 import os
 import sys
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+import jdatetime
 from openai import OpenAI
 from json_data_store import read_data, read_school_schedule, write_data
 
@@ -44,6 +47,10 @@ def get_ai_reply(user_text: str) -> str:
 
     current_data = read_data(FILE_PATH)
     school_schedule = read_school_schedule()
+    tehran_now = datetime.now(ZoneInfo("Asia/Tehran"))
+    today_jalali = jdatetime.datetime.fromgregorian(datetime=tehran_now).strftime(
+        "%Y/%m/%d"
+    )
 
     client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
     response = client.chat.completions.create(
@@ -57,6 +64,7 @@ def get_ai_reply(user_text: str) -> str:
                         "message": user_text,
                         "current_datas": current_data,
                         "school_schedule": school_schedule,
+                        "today_jalali": today_jalali,
                     },
                     ensure_ascii=False,
                 ),
