@@ -7,7 +7,7 @@ from bot_logging import log
 
 app = Flask(__name__)
 
-
+ 
 TOKEN = os.environ.get("BALE_BOT_TOKEN", "").strip()
 API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 
