@@ -52,25 +52,25 @@ def get_ai_reply(user_text: str) -> str:
         "%Y/%m/%d"
     )
 
-    client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "message": user_text,
-                        "current_datas": current_data,
-                        "school_schedule": school_schedule,
-                        "today_jalali": today_jalali,
-                    },
-                    ensure_ascii=False,
-                ),
-            },
-        ],
-    )
+    with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "message": user_text,
+                            "current_datas": current_data,
+                            "school_schedule": school_schedule,
+                            "today_jalali": today_jalali,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+        )
     raw_result = (response.choices[0].message.content or "").strip()
     result = json.loads(raw_result)
     if not isinstance(result, dict) or not isinstance(result.get("answer"), str):

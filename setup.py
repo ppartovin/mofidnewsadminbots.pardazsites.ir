@@ -3,13 +3,9 @@ import os
 import requests
 from flask import Flask, request
 from ai_responder import get_ai_reply
+from bot_logging import log
 
 app = Flask(__name__)
-
-
-def log(text):
-    with open(os.path.join(os.path.dirname(__file__), "bot.log"), "a", encoding="utf-8") as f:
-        f.write(str(text) + "\n")
 
 
 TOKEN = os.environ.get("BALE_BOT_TOKEN", "").strip()
