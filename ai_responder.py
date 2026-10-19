@@ -60,32 +60,42 @@ def get_ai_reply(user_text: str) -> str:
 
     logger.info("AI request | model=%s base_url=%s today_jalali=%s", MODEL, BASE_URL, today_jalali)
     started = time.monotonic()
-    with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(
                 {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "message": user_text,
-                            "current_datas": current_data,
-                            "school_schedule": school_schedule,
-                            "today_jalali": today_jalali,
-                        },
-                        ensure_ascii=False,
-                    ),
+                    "message": user_text,
+                    "current_datas": current_data,
+                    "school_schedule": school_schedule,
+                    "today_jalali": today_jalali,
                 },
-            ],
-        )
+                ensure_ascii=False,
+            ),
+        },
+    ]
+    logger.info(
+        "AI input | model=%s today_jalali=%s user_text=%s",
+        MODEL,
+        today_jalali,
+        user_text,
+    )
+    with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
+        response = client.chat.completions.create(model=MODEL, messages=messages)
     logger.info(
         "AI response received | duration_ms=%d usage=%s",
         (time.monotonic() - started) * 1000,
         getattr(response, "usage", None),
     )
     raw_result = (response.choices[0].message.content or "").strip()
-    logger.debug("AI raw result | %s", raw_result)
+    logger.info(
+        "AI full output | id=%s model=%s finish_reason=%s raw=%s",
+        getattr(response, "id", None),
+        getattr(response, "model", None),
+        response.choices[0].finish_reason,
+        raw_result,
+    )
     try:
         result = json.loads(raw_result)
     except json.JSONDecodeError:

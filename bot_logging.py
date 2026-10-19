@@ -20,7 +20,7 @@ LOG_TZ = ZoneInfo("Asia/Tehran")
 LOG_FILE_NAME = "bot.log"
 RETENTION_DAYS = 9
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
-MAX_MESSAGE_CHARS = 10000
+MAX_MESSAGE_CHARS = 500000
 CLEANUP_INTERVAL_SECONDS = 60 * 60
 
 request_id_var = contextvars.ContextVar("request_id", default="-")
