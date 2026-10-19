@@ -3,12 +3,16 @@
 import os
 import sys
 import json
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import jdatetime
 from openai import OpenAI
+from bot_logging import get_logger
 from json_data_store import read_data, read_school_schedule, write_data
+
+logger = get_logger("ai")
 
 
 BASE_URL = os.environ.get("AI_BASE_URL", "https://api.gapgpt.app/v1").strip()
@@ -41,8 +45,10 @@ the user. Do not put markdown fences or any text outside the JSON object."""
 def get_ai_reply(user_text: str) -> str:
     """Ask the AI, apply an explicitly requested JSON edit, and return answer."""
     if not API_KEY:
+        logger.error("AI_API_KEY is not configured")
         raise RuntimeError("OPENAI_API_KEY is not configured")
     if not FILE_PATH:
+        logger.error("FILE_PATH is not configured")
         raise RuntimeError("FILE_PATH is not configured")
 
     current_data = read_data(FILE_PATH)
@@ -52,6 +58,8 @@ def get_ai_reply(user_text: str) -> str:
         "%Y/%m/%d"
     )
 
+    logger.info("AI request | model=%s base_url=%s today_jalali=%s", MODEL, BASE_URL, today_jalali)
+    started = time.monotonic()
     with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
         response = client.chat.completions.create(
             model=MODEL,
@@ -71,14 +79,29 @@ def get_ai_reply(user_text: str) -> str:
                 },
             ],
         )
+    logger.info(
+        "AI response received | duration_ms=%d usage=%s",
+        (time.monotonic() - started) * 1000,
+        getattr(response, "usage", None),
+    )
     raw_result = (response.choices[0].message.content or "").strip()
-    result = json.loads(raw_result)
+    logger.debug("AI raw result | %s", raw_result)
+    try:
+        result = json.loads(raw_result)
+    except json.JSONDecodeError:
+        logger.error("AI returned invalid JSON | raw=%.500s", raw_result)
+        raise
     if not isinstance(result, dict) or not isinstance(result.get("answer"), str):
+        logger.error("AI response has invalid shape | raw=%.500s", raw_result)
         raise ValueError("AI response must be a JSON object with a string answer")
     if "datas" not in result:
+        logger.error("AI response is missing datas | raw=%.500s", raw_result)
         raise ValueError("AI response is missing the datas field")
 
     if result["datas"] is not None:
+        logger.info("AI requested data file update | path=%s", FILE_PATH)
         write_data(FILE_PATH, result["datas"])
+    else:
+        logger.info("AI made no data changes")
 
     return result["answer"]
