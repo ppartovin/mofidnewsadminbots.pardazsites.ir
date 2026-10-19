@@ -8,8 +8,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import jdatetime
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from bot_logging import get_logger
+from error_handling import AIResponseError, AIServiceError, ConfigError, parse_ai_result
 from json_data_store import read_data, read_school_schedule, write_data
 
 logger = get_logger("ai")
@@ -46,10 +47,10 @@ def get_ai_reply(user_text: str) -> str:
     """Ask the AI, apply an explicitly requested JSON edit, and return answer."""
     if not API_KEY:
         logger.error("AI_API_KEY is not configured")
-        raise RuntimeError("OPENAI_API_KEY is not configured")
+        raise ConfigError("AI_API_KEY is not configured")
     if not FILE_PATH:
         logger.error("FILE_PATH is not configured")
-        raise RuntimeError("FILE_PATH is not configured")
+        raise ConfigError("FILE_PATH is not configured")
 
     current_data = read_data(FILE_PATH)
     school_schedule = read_school_schedule()
@@ -81,8 +82,15 @@ def get_ai_reply(user_text: str) -> str:
         today_jalali,
         user_text,
     )
-    with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
+    try:
+        with OpenAI(base_url=BASE_URL, api_key=API_KEY) as client:
+            response = client.chat.completions.create(model=MODEL, messages=messages)
+    except OpenAIError as error:
+        logger.exception("AI request failed | error=%s", type(error).__name__)
+        raise AIServiceError(f"AI request failed: {type(error).__name__}") from error
+    if not getattr(response, "choices", None):
+        logger.error("AI response has no choices | id=%s", getattr(response, "id", None))
+        raise AIResponseError("AI response contained no choices")
     logger.info(
         "AI response received | duration_ms=%d usage=%s",
         (time.monotonic() - started) * 1000,
@@ -97,16 +105,10 @@ def get_ai_reply(user_text: str) -> str:
         raw_result,
     )
     try:
-        result = json.loads(raw_result)
-    except json.JSONDecodeError:
-        logger.error("AI returned invalid JSON | raw=%.500s", raw_result)
+        result = parse_ai_result(raw_result)
+    except AIResponseError as error:
+        logger.error("AI response rejected | error=%s raw=%.500s", error, raw_result)
         raise
-    if not isinstance(result, dict) or not isinstance(result.get("answer"), str):
-        logger.error("AI response has invalid shape | raw=%.500s", raw_result)
-        raise ValueError("AI response must be a JSON object with a string answer")
-    if "datas" not in result:
-        logger.error("AI response is missing datas | raw=%.500s", raw_result)
-        raise ValueError("AI response is missing the datas field")
 
     if result["datas"] is not None:
         logger.info("AI requested data file update | path=%s", FILE_PATH)

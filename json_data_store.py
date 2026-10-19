@@ -5,6 +5,7 @@ import os
 import tempfile
 
 from bot_logging import get_logger
+from error_handling import DataFileError
 
 logger = get_logger("store")
 
@@ -17,9 +18,9 @@ def read_data(path: str):
     try:
         with open(path, "r", encoding="utf-8") as data_file:
             data = json.load(data_file)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as error:
         logger.exception("Failed to read JSON file | path=%s", path)
-        raise
+        raise DataFileError(f"Cannot read JSON file {path}: {error}") from error
     logger.debug("JSON file read | path=%s", path)
     return data
 
@@ -42,9 +43,12 @@ def write_data(path: str, data) -> None:
             temp_file.write("\n")
         os.replace(temp_path, path)
         logger.info("JSON file written | path=%s", path)
-    except Exception:
+    except (OSError, TypeError, ValueError) as error:
         logger.exception("Failed to write JSON file | path=%s", path)
-        raise
+        raise DataFileError(f"Cannot write JSON file {path}: {error}") from error
     finally:
         if temp_path and os.path.exists(temp_path):
-            os.unlink(temp_path)
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                logger.warning("Could not remove temp file | path=%s", temp_path)
