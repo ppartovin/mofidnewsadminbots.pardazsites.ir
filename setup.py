@@ -120,6 +120,7 @@ def webhook():
             request_id,
             (time.monotonic() - started) * 1000,
         )
+        exit(1)
         return "ok", 200
 
 
